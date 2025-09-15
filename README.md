@@ -30,6 +30,7 @@ Integration Framework is a comprehensive, production-ready Salesforce framework 
 - **Performance Monitoring**: Built-in processing time and performance metrics
 - **SOLID Compliance**: Follows SOLID principles
 
+<<<<<<< HEAD
 ## ⚠️ Important: Data Cleanup Required
 
 **This framework does NOT include built-in data cleanup functionality.** The framework creates `Integration_Log__c` and `Integration_Error__c` records for every integration request, which will accumulate over time and impact your org's storage and performance.
@@ -102,6 +103,8 @@ We intentionally excluded automatic data cleanup to give developers complete fre
 | Error Logs | 90-180 days | Compliance and audit requirements |
 | Success Logs | 7-30 days | Minimal retention for successful calls |
 
+=======
+>>>>>>> b5a9ccd6b0f9ebf8d209c897f78147979013dcfc
 ### Architecture Overview
 
 The framework follows a layered architecture:

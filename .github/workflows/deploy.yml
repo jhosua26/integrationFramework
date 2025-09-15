@@ -1,0 +1,252 @@
+name: Deploy Integration Framework V3
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - test
+        - staging
+        - prod
+      org_alias:
+        description: 'Salesforce org alias'
+        required: true
+        type: string
+
+jobs:
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install SFDX CLI
+      run: |
+        npm install -g @salesforce/cli
+        sfdx --version
+        
+    - name: Authenticate to Dev Hub
+      run: |
+        echo ${{ secrets.SF_DEVHUB_URL }} > .env
+        sfdx force:auth:jwt:grant --clientid ${{ secrets.SF_CONNECTED_APP_CONSUMER_KEY }} --jwtkeyfile ${{ secrets.SF_JWT_KEY_FILE }} --username ${{ secrets.SF_DEVHUB_USERNAME }} --instanceurl ${{ secrets.SF_DEVHUB_URL }}
+        
+    - name: Validate deployment
+      run: |
+        sfdx force:source:deploy --sourcepath force-app --targetusername ${{ secrets.SF_DEV_ORG_ALIAS }} --checkonly --testlevel RunLocalTests
+        
+    - name: Run tests
+      run: |
+        sfdx force:apex:test:run --testlevel RunLocalTests --targetusername ${{ secrets.SF_DEV_ORG_ALIAS }} --json --wait 10
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: test-results/
+        
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    needs: validate
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install SFDX CLI
+      run: |
+        npm install -g @salesforce/cli
+        sfdx --version
+        
+    - name: Authenticate to Dev Hub
+      run: |
+        echo ${{ secrets.SF_DEVHUB_URL }} > .env
+        sfdx force:auth:jwt:grant --clientid ${{ secrets.SF_CONNECTED_APP_CONSUMER_KEY }} --jwtkeyfile ${{ secrets.SF_JWT_KEY_FILE }} --username ${{ secrets.SF_DEVHUB_USERNAME }} --instanceurl ${{ secrets.SF_DEVHUB_URL }}
+        
+    - name: Deploy to development org
+      run: |
+        sfdx force:source:deploy --sourcepath force-app --targetusername ${{ secrets.SF_DEV_ORG_ALIAS }} --testlevel RunLocalTests
+        
+    - name: Run post-deployment tests
+      run: |
+        sfdx force:apex:test:run --testlevel RunSpecifiedTests --tests "IntegrationFrameworkV3.Testing.SapConnectorTest,IntegrationFrameworkV3.Testing.SalesforceConnectorTest,IntegrationFrameworkV3.Testing.FactoryTest,IntegrationFrameworkV3.Testing.CoreServicesTest,IntegrationFrameworkV3.Testing.ModelsAndConfigTest" --targetusername ${{ secrets.SF_DEV_ORG_ALIAS }} --json --wait 10
+        
+    - name: Create deployment summary
+      run: |
+        echo "# Development Deployment Summary" > deployment-summary-dev.md
+        echo "**Environment:** Development" >> deployment-summary-dev.md
+        echo "**Timestamp:** $(date)" >> deployment-summary-dev.md
+        echo "**Status:** ✅ Success" >> deployment-summary-dev.md
+        
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-summary-dev
+        path: deployment-summary-dev.md
+        
+  deploy-test:
+    name: Deploy to Test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: validate
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install SFDX CLI
+      run: |
+        npm install -g @salesforce/cli
+        sfdx --version
+        
+    - name: Authenticate to Dev Hub
+      run: |
+        echo ${{ secrets.SF_DEVHUB_URL }} > .env
+        sfdx force:auth:jwt:grant --clientid ${{ secrets.SF_CONNECTED_APP_CONSUMER_KEY }} --jwtkeyfile ${{ secrets.SF_JWT_KEY_FILE }} --username ${{ secrets.SF_DEVHUB_USERNAME }} --instanceurl ${{ secrets.SF_DEVHUB_URL }}
+        
+    - name: Deploy to test org
+      run: |
+        sfdx force:source:deploy --sourcepath force-app --targetusername ${{ secrets.SF_TEST_ORG_ALIAS }} --testlevel RunLocalTests
+        
+    - name: Run post-deployment tests
+      run: |
+        sfdx force:apex:test:run --testlevel RunSpecifiedTests --tests "IntegrationFrameworkV3.Testing.SapConnectorTest,IntegrationFrameworkV3.Testing.SalesforceConnectorTest,IntegrationFrameworkV3.Testing.FactoryTest,IntegrationFrameworkV3.Testing.CoreServicesTest,IntegrationFrameworkV3.Testing.ModelsAndConfigTest" --targetusername ${{ secrets.SF_TEST_ORG_ALIAS }} --json --wait 10
+        
+    - name: Create deployment summary
+      run: |
+        echo "# Test Deployment Summary" > deployment-summary-test.md
+        echo "**Environment:** Test" >> deployment-summary-test.md
+        echo "**Timestamp:** $(date)" >> deployment-summary-test.md
+        echo "**Status:** ✅ Success" >> deployment-summary-test.md
+        
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-summary-test
+        path: deployment-summary-test.md
+        
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install SFDX CLI
+      run: |
+        npm install -g @salesforce/cli
+        sfdx --version
+        
+    - name: Authenticate to Dev Hub
+      run: |
+        echo ${{ secrets.SF_DEVHUB_URL }} > .env
+        sfdx force:auth:jwt:grant --clientid ${{ secrets.SF_CONNECTED_APP_CONSUMER_KEY }} --jwtkeyfile ${{ secrets.SF_JWT_KEY_FILE }} --username ${{ secrets.SF_DEVHUB_USERNAME }} --instanceurl ${{ secrets.SF_DEVHUB_URL }}
+        
+    - name: Deploy to staging org
+      run: |
+        sfdx force:source:deploy --sourcepath force-app --targetusername ${{ secrets.SF_STAGING_ORG_ALIAS }} --testlevel RunLocalTests
+        
+    - name: Run post-deployment tests
+      run: |
+        sfdx force:apex:test:run --testlevel RunSpecifiedTests --tests "IntegrationFrameworkV3.Testing.SapConnectorTest,IntegrationFrameworkV3.Testing.SalesforceConnectorTest,IntegrationFrameworkV3.Testing.FactoryTest,IntegrationFrameworkV3.Testing.CoreServicesTest,IntegrationFrameworkV3.Testing.ModelsAndConfigTest" --targetusername ${{ secrets.SF_STAGING_ORG_ALIAS }} --json --wait 10
+        
+    - name: Create deployment summary
+      run: |
+        echo "# Staging Deployment Summary" > deployment-summary-staging.md
+        echo "**Environment:** Staging" >> deployment-summary-staging.md
+        echo "**Timestamp:** $(date)" >> deployment-summary-staging.md
+        echo "**Status:** ✅ Success" >> deployment-summary-staging.md
+        
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-summary-staging
+        path: deployment-summary-staging.md
+        
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install SFDX CLI
+      run: |
+        npm install -g @salesforce/cli
+        sfdx --version
+        
+    - name: Authenticate to Dev Hub
+      run: |
+        echo ${{ secrets.SF_DEVHUB_URL }} > .env
+        sfdx force:auth:jwt:grant --clientid ${{ secrets.SF_CONNECTED_APP_CONSUMER_KEY }} --jwtkeyfile ${{ secrets.SF_JWT_KEY_FILE }} --username ${{ secrets.SF_DEVHUB_USERNAME }} --instanceurl ${{ secrets.SF_DEVHUB_URL }}
+        
+    - name: Deploy to production org
+      run: |
+        sfdx force:source:deploy --sourcepath force-app --targetusername ${{ secrets.SF_PROD_ORG_ALIAS }} --testlevel RunLocalTests
+        
+    - name: Run post-deployment tests
+      run: |
+        sfdx force:apex:test:run --testlevel RunSpecifiedTests --tests "IntegrationFrameworkV3.Testing.SapConnectorTest,IntegrationFrameworkV3.Testing.SalesforceConnectorTest,IntegrationFrameworkV3.Testing.FactoryTest,IntegrationFrameworkV3.Testing.CoreServicesTest,IntegrationFrameworkV3.Testing.ModelsAndConfigTest" --targetusername ${{ secrets.SF_PROD_ORG_ALIAS }} --json --wait 10
+        
+    - name: Create deployment summary
+      run: |
+        echo "# Production Deployment Summary" > deployment-summary-prod.md
+        echo "**Environment:** Production" >> deployment-summary-prod.md
+        echo "**Timestamp:** $(date)" >> deployment-summary-prod.md
+        echo "**Status:** ✅ Success" >> deployment-summary-prod.md
+        
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-summary-prod
+        path: deployment-summary-prod.md
+        
+    - name: Notify deployment completion
+      run: |
+        echo "Production deployment completed successfully!"
+        # Add notification logic here (Slack, email, etc.)

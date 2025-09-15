@@ -1,0 +1,186 @@
+# AWAF (Apex Well-Architected Framework) Rules for Salesforce Integration Framework
+
+## SOLID Principles
+
+### Single Responsibility Principle (SRP)
+- Each class should have only one reason to change
+- Keep methods focused on a single task
+- Separate concerns: data access, business logic, integration, error handling
+- Example: Don't mix REST API calls with data transformation in the same method
+
+### Open/Closed Principle (OCP)
+- Classes should be open for extension but closed for modification
+- Use interfaces and abstract classes for extensibility
+- Implement strategy patterns for different integration types
+- Example: BaseConnector should allow new connector types without modifying existing code
+
+### Liskov Substitution Principle (LSP)
+- Derived classes must be substitutable for their base classes
+- Maintain consistent method signatures across inheritance hierarchy
+- Ensure polymorphic behavior works correctly
+- Example: All connector implementations should work with ConnectorFactory
+
+### Interface Segregation Principle (ISP)
+- Clients should not be forced to depend on interfaces they don't use
+- Create specific interfaces for specific use cases
+- Avoid large, monolithic interfaces
+- Example: Separate interfaces for DataConnector, ErrorHandler, Logger
+
+### Dependency Inversion Principle (DIP)
+- High-level modules should not depend on low-level modules
+- Both should depend on abstractions
+- Use dependency injection for loose coupling
+- Example: Inject IErrorHandler and ILogger into connector classes
+
+## Deep Modules (High Cohesion, Low Coupling)
+
+### High Cohesion
+- Group related functionality together
+- Keep related methods and properties in the same class
+- Minimize the number of responsibilities per class
+- Example: All REST-specific logic should be in RESTConnector
+
+### Low Coupling
+- Minimize dependencies between classes
+- Use interfaces to decouple implementations
+- Avoid direct instantiation of concrete classes
+- Example: Use ConnectorFactory instead of directly creating connector instances
+
+## Dependency Injection
+
+### Constructor Injection
+- Inject dependencies through constructors
+- Make dependencies explicit and testable
+- Use interfaces for injected dependencies
+- Example: `public class RESTConnector { private IErrorHandler errorHandler; private ILogger logger; }`
+
+### Service Locator Pattern
+- Use factory classes to manage object creation
+- Centralize dependency resolution
+- Example: ConnectorFactory for creating different connector types
+
+## Guard Clauses
+
+### Early Returns
+- Return early when conditions are not met
+- Reduce nesting and improve readability
+- Validate inputs at the beginning of methods
+- Example: Check for null parameters before processing
+
+### Defensive Programming
+- Validate all inputs
+- Handle edge cases early
+- Use meaningful error messages
+- Example: `if (endpoint == null) { throw new IllegalArgumentException('Endpoint cannot be null'); }`
+
+## Code Structure Guidelines
+
+### File Organization
+- Use SFDX folder structure
+- Group related classes in appropriate folders
+- Follow naming conventions consistently
+- Example: `force-app/main/default/classes/IntegrationFrameworkV2/`
+
+### Method Design
+- Keep methods small and focused (max 20-30 lines)
+- Use descriptive method names
+- Limit parameters (max 3-4 parameters)
+- Example: `processIntegrationRequest(String endpoint, Map<String, Object> data)`
+
+### Error Handling
+- Use custom exception classes
+- Provide meaningful error messages
+- Log errors appropriately
+- Example: `IntegrationException`, `ConnectorException`
+
+### Testing
+- Write unit tests for all public methods
+- Use dependency injection for testability
+- Mock external dependencies
+- Aim for 95% test coverage
+- Example: Test each connector type independently
+
+## Naming Conventions
+
+### Classes
+- Use PascalCase for class names
+- Be descriptive and specific
+- Example: `EnhancedRESTConnector`, `IntegrationErrorHandler`
+
+### Methods
+- Use camelCase for method names
+- Use verb-noun format
+- Example: `processRequest()`, `handleError()`, `logMessage()`
+
+### Variables
+- Use camelCase for variable names
+- Be descriptive and avoid abbreviations
+- Example: `endpointUrl`, `requestHeaders`, `responseData`
+
+## Documentation
+
+### Comments
+- Use meaningful comments for complex logic
+- Document public methods with @description
+- Include parameter and return value descriptions
+- Example: `@description Processes integration request and returns response`
+
+### README Files
+- Maintain README files in each major folder
+- Document architecture decisions
+- Provide usage examples
+- Example: `IntegrationFrameworkV2/README.md`
+
+## Performance Considerations
+
+### Bulk Operations
+- Use bulk patterns for large datasets
+- Avoid SOQL queries in loops
+- Use collections efficiently
+- Example: Process records in batches of 200
+
+### Memory Management
+- Avoid memory leaks in long-running processes
+- Clear collections when no longer needed
+- Use appropriate data structures
+- Example: Clear maps after processing
+
+## Security
+
+### Input Validation
+- Validate all external inputs
+- Sanitize data before processing
+- Use parameterized queries
+- Example: Check for SQL injection in dynamic SOQL
+
+### Access Control
+- Use proper sharing settings
+- Implement field-level security
+- Validate user permissions
+- Example: Check user access before data operations
+
+## Integration-Specific Guidelines
+
+### Connector Design
+- Implement consistent interface across all connectors
+- Handle authentication properly
+- Implement retry logic with exponential backoff
+- Example: All connectors extend BaseConnector
+
+### Error Recovery
+- Use dead letter queues for failed messages
+- Provide manual retry mechanisms
+
+
+## Best Practices Summary
+
+1. **Write small, focused classes** with single responsibilities
+2. **Use interfaces** for loose coupling and testability
+3. **Implement guard clauses** for early validation and returns
+4. **Inject dependencies** rather than creating them directly
+5. **Write comprehensive tests** with high coverage
+6. **Document your code** with meaningful comments
+7. **Follow naming conventions** consistently
+8. **Handle errors gracefully** with proper logging
+9. **Optimize for performance** in bulk operations
+10. **Secure your code** with proper validation and access controls
