@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Enable_Queueable_Retry__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, the framework will use Queueable jobs for retry logic to avoid Salesforce platform limitations. When disabled, it will use synchronous retry logic.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Enable this to use Queueable retry logic (recommended for production). Disable for testing/development environments.</inlineHelpText>
+    <label>Enable Queueable Retry</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+    <unique>false</unique>
+</CustomField>

@@ -30,6 +30,78 @@ Integration Framework is a comprehensive, production-ready Salesforce framework 
 - **Performance Monitoring**: Built-in processing time and performance metrics
 - **SOLID Compliance**: Follows SOLID principles
 
+## ⚠️ Important: Data Cleanup Required
+
+**This framework does NOT include built-in data cleanup functionality.** The framework creates `Integration_Log__c` and `Integration_Error__c` records for every integration request, which will accumulate over time and impact your org's storage and performance.
+
+### Why No Built-in Cleanup?
+
+We intentionally excluded automatic data cleanup to give developers complete freedom to implement their own data retention policies based on:
+- **Compliance Requirements**: Different industries have varying data retention mandates
+- **Business Needs**: Some organizations need to keep integration data for years, others only days
+- **Storage Costs**: Developers can optimize cleanup frequency based on their storage budget
+- **Audit Requirements**: Custom retention periods for different types of integrations
+
+### Recommended Solution: Batch Apex Data Cleanup
+
+**Use Salesforce Batch Apex for data cleanup** - it's the most efficient and scalable approach for large datasets.
+
+#### Quick Setup (3 Steps):
+
+1. **Deploy the Sample Batch Class**:
+   ```apex
+   // Run this in Anonymous Apex to set up monthly cleanup
+   IntegrationDataCleanupBatch.scheduleMonthlyCleanup();
+   ```
+
+2. **Or Create Your Own Custom Batch**:
+   ```apex
+   global class MyCustomCleanupBatch implements Database.Batchable<SObject>, Schedulable {
+       public Database.QueryLocator start(Database.BatchableContext bc) {
+           Date cutoffDate = Date.today().addDays(-90); // Keep 90 days
+           return Database.getQueryLocator([
+               SELECT Id FROM Integration_Log__c 
+               WHERE CreatedDate < :cutoffDate
+           ]);
+       }
+       
+       public void execute(Database.BatchableContext bc, List<SObject> records) {
+           delete records; // Delete old logs
+       }
+       
+       public void finish(Database.BatchableContext bc) {
+           // Schedule next run
+           System.schedule('Next Cleanup', '0 0 2 1 * ?', new MyCustomCleanupBatch());
+       }
+       
+       public void execute(SchedulableContext sc) {
+           Database.executeBatch(new MyCustomCleanupBatch(), 200);
+       }
+   }
+   ```
+
+3. **Schedule Your Batch Process**:
+   ```apex
+   // Monthly cleanup (1st of every month at 2 AM)
+   System.schedule('Integration Cleanup', '0 0 2 1 * ?', new MyCustomCleanupBatch());
+   ```
+
+#### Salesforce Batch Apex Best Practices:
+
+- **Batch Size**: Use 200 records per batch for optimal performance
+- **Governor Limits**: Batch Apex can process up to 50 million records
+- **Scheduling**: Use Cron expressions for automatic scheduling
+- **Monitoring**: Check Apex Jobs in Setup to monitor batch execution
+- **Error Handling**: Implement proper error handling in your batch classes
+
+#### Sample Retention Policies:
+
+| Data Type | Recommended Retention | Reason |
+|-----------|----------------------|---------|
+| Integration Logs | 30-90 days | Debugging and troubleshooting |
+| Error Logs | 90-180 days | Compliance and audit requirements |
+| Success Logs | 7-30 days | Minimal retention for successful calls |
+
 ### Architecture Overview
 
 The framework follows a layered architecture:
